@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRGenX - Free QR Code Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 30px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        #qr-form {
+            margin-bottom: 20px;
+        }
+        #url-input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        #result-container {
+            margin-top: 30px;
+            min-height: 250px;
+        }
+        #qr-code-container {
+            margin: 20px 0;
+        }
+        #qr-code-container img {
+            max-width: 200px;
+            height: auto;
+            border: 1px solid #eee;
+            padding: 10px;
+            background: white;
+        }
+        #download-btn {
+            display: none;
+            background-color: #2ecc71;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            transition: background-color 0.3s;
+            margin-top: 15px;
+        }
+        #download-btn:hover {
+            background-color: #27ae60;
+        }
+        #loading {
+            display: none;
+            margin: 20px 0;
+            color: #7f8c8d;
+        }
+        #error-message {
+            color: #e74c3c;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>QRGenX</h1>
+        <p>Generate QR codes for any URL</p>
+
+        <form id="qr-form">
+            <input type="url" id="url-input" placeholder="https://example.com" required>
+            <button type="submit">Generate QR Code</button>
+        </form>
+
+        <div id="loading">Generating QR code...</div>
+        <div id="error-message"></div>
+
+        <div id="result-container">
+            <div id="qr-code-container"></div>
+            <a id="download-btn" download="qrcode.png">Download QR Code</a>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('qr-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Reset UI
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('qr-code-container').innerHTML = '';
+            document.getElementById('download-btn').style.display = 'none';
+            
+            const url = document.getElementById('url-input').value.trim();
+            
+            if (!url) {
+                showError('Please enter a valid URL');
+                return;
+            }
+
+            try {
+                // Show loading state
+                document.getElementById('loading').style.display = 'block';
+                
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ data: url })
+                });
+                
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || 'Server returned an error');
+                }
+
+                const qrBlob = await response.blob();
+                
+                // Check if the response is actually an image
+                if (!qrBlob.type.startsWith('image/')) {
+                    throw new Error('Server did not return an image');
+                }
+                
+                const qrUrl = URL.createObjectURL(qrBlob);
+                
+                // Display QR code
+                const qrContainer = document.getElementById('qr-code-container');
+                qrContainer.innerHTML = `<img src="${qrUrl}" alt="QR Code for ${url}">`;
+                
+                // Enable download
+                const downloadBtn = document.getElementById('download-btn');
+                downloadBtn.href = qrUrl;
+                downloadBtn.style.display = 'inline-block';
+                downloadBtn.setAttribute('download', `qr-${Date.now()}.png`);
+                
+            } catch (error) {
+                console.error('QR Generation Error:', error);
+                showError(error.message || 'Failed to generate QR code. Please try again.');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        });
+
+        function showError(message) {
+            const errorEl = document.getElementById('error-message');
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+    </script>
+</body>
+</html>

@@ -4,18 +4,18 @@ on:
   push:
     branches: [ main ]
 
-env:
-  AWS_REGION: us-east-1
-  APP_NAME: qrgenx
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
     
@@ -33,24 +33,21 @@ jobs:
   deploy:
     needs: build-test
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
     steps:
-    - uses: actions/checkout@v3
-
-    - name: Debug - List secrets
-      run: |
-        echo "Checking secrets availability"
-        echo "AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID != '' }}"
-        echo "AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY != '' }}"    
-
+    - uses: actions/checkout@v4
+    
     - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v4
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ env.AWS_REGION }}
-        mask-aws-account-id: false 
+        aws-region: us-east-1
+        
     - name: Login to GitHub Container Registry
-      uses: docker/login-action@v2
+      uses: docker/login-action@v3
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -59,11 +56,11 @@ jobs:
     - name: Build and push Docker image
       run: |
         cd app
-        docker build -t ghcr.io/${{ github.repository_owner }}/${{ env.APP_NAME }}:latest .
-        docker push ghcr.io/${{ github.repository_owner }}/${{ env.APP_NAME }}:latest
+        docker build -t ghcr.io/${{ github.repository_owner }}/qrgenx:latest .
+        docker push ghcr.io/${{ github.repository_owner }}/qrgenx:latest
         
     - name: Install Terraform
-      uses: hashicorp/setup-terraform@v2
+      uses: hashicorp/setup-terraform@v3
       
     - name: Terraform Apply
       run: |

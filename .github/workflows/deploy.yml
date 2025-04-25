@@ -1,0 +1,66 @@
+name: Deploy QRGenX
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  APP_NAME: qrgenx
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r app/requirements.txt
+        pip install pytest
+        
+    - name: Run tests
+      run: |
+        cd app
+        pytest -v
+        
+  deploy:
+    needs: build-test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build and push Docker image
+      run: |
+        cd app
+        docker build -t ghcr.io/${{ github.repository_owner }}/${{ env.APP_NAME }}:latest .
+        docker push ghcr.io/${{ github.repository_owner }}/${{ env.APP_NAME }}:latest
+        
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v2
+      
+    - name: Terraform Apply
+      run: |
+        cd infra
+        terraform init
+        terraform apply -auto-approve
